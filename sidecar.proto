@@ -1,0 +1,250 @@
+syntax = "proto3";
+
+package stigg.sidecar.v1;
+
+option go_package = "github.com/jaredpiedt/stigg-sidecar-sdk-go;stigg";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+enum AccessDeniedReason {
+  ACCESS_DENIED_REASON_UNSPECIFIED = 0;
+  ACCESS_DENIED_REASON_UNKNOWN = 1;
+  ACCESS_DENIED_REASON_CUSTOMER_IS_ARCHIVED = 2;
+  ACCESS_DENIED_REASON_CUSTOMER_NOT_FOUND = 3;
+  ACCESS_DENIED_REASON_CUSTOMER_RESOURCE_NOT_FOUND = 4;
+  ACCESS_DENIED_REASON_FEATURE_NOT_FOUND = 5;
+  ACCESS_DENIED_REASON_NO_ACTIVE_SUBSCRIPTION = 6;
+  ACCESS_DENIED_REASON_NO_FEATURE_ENTITLEMENT_IN_SUBSCRIPTION = 7;
+  ACCESS_DENIED_REASON_REQUESTED_USAGE_EXCEEDING_LIMIT = 8;
+}
+
+enum FeatureType {
+  FEATURE_TYPE_UNSPECIFIED = 0;
+  FEATURE_TYPE_BOOLEAN = 1;
+  FEATURE_TYPE_NUMBER = 2;
+}
+
+enum MeterType {
+  METER_TYPE_UNSPECIFIED = 0;
+  METER_TYPE_NONE = 1;
+  METER_TYPE_FLUCTUATING = 2;
+  METER_TYPE_INCREMENTAL = 3;
+}
+
+enum EntitlementResetPeriod {
+  ENTITLEMENT_RESET_PERIOD_UNSPECIFIED = 0;
+  ENTITLEMENT_RESET_PERIOD_DAY = 1;
+  ENTITLEMENT_RESET_PERIOD_HOUR = 2;
+  ENTITLEMENT_RESET_PERIOD_MONTH = 3;
+  ENTITLEMENT_RESET_PERIOD_WEEK = 4;
+  ENTITLEMENT_RESET_PERIOD_YEAR = 5;
+}
+
+enum UsageUpdateBehavior {
+  USAGE_UPDATE_BEHAVIOR_UNSPECIFIED = 0;
+  USAGE_UPDATE_BEHAVIOR_DELTA = 1;
+  USAGE_UPDATE_BEHAVIOR_SET = 2;
+}
+
+message EntitlementFeature {
+  string id = 1;
+  FeatureType feature_type = 2;
+  optional string units = 3;
+  optional string units_plural = 4;
+  MeterType meter_type = 5;
+  bool is_metered = 6;
+}
+
+message BooleanEntitlement {
+  optional EntitlementFeature feature = 4;
+}
+
+message NumericEntitlement {
+  optional EntitlementFeature feature = 4;
+  optional int32 value = 5;
+  bool is_unlimited = 6;
+}
+
+message MeteredEntitlement {
+  optional EntitlementFeature feature = 4;
+  optional double usage_limit = 5;
+  bool is_unlimited = 6;
+  double current_usage = 7;
+  optional EntitlementResetPeriod reset_period = 9;
+  optional google.protobuf.Timestamp next_reset_date = 10;
+}
+
+message Entitlement {
+  oneof entitlement {
+    BooleanEntitlement boolean = 1;
+    NumericEntitlement numeric = 2;
+    MeteredEntitlement metered = 3;
+  }
+}
+
+message GetEntitlementsRequest {
+  string customer_id = 1;
+  optional string resource_id = 2;
+}
+
+message GetEntitlementsResponse {
+  repeated Entitlement entitlements = 1;
+}
+
+message BooleanEntitlementFallback {
+  bool has_access = 1;
+}
+
+message BooleanEntitlementOptions {
+  optional BooleanEntitlementFallback fallback = 1;
+}
+
+message GetBooleanEntitlementRequest {
+  string customer_id = 1;
+  string feature_id = 2;
+  optional string resource_id = 3;
+  optional BooleanEntitlementOptions options = 4;
+}
+
+message GetBooleanEntitlementResponse {
+  bool has_access = 1;
+  bool is_fallback = 2;
+  optional AccessDeniedReason access_denied_reason = 3;
+  BooleanEntitlement entitlement = 4;
+}
+
+message NumericEntitlementFallback {
+  bool has_access = 1;
+  optional int32 value = 2;
+  optional bool is_unlimited = 3;
+}
+
+message NumericEntitlementOptions {
+  optional NumericEntitlementFallback fallback = 1;
+}
+
+message GetNumericEntitlementRequest {
+  string customer_id = 1;
+  string feature_id = 2;
+  optional string resource_id = 3;
+  optional NumericEntitlementOptions options = 4;
+}
+
+message GetNumericEntitlementResponse {
+  bool has_access = 1;
+  bool is_fallback = 2;
+  optional AccessDeniedReason access_denied_reason = 3;
+  NumericEntitlement entitlement = 4;
+}
+
+message MeteredEntitlementFallback {
+  bool has_access = 1;
+  optional double usage_limit = 2;
+  optional bool is_unlimited = 3;
+}
+
+message MeteredEntitlementOptions {
+  optional double requested_usage = 1;
+  optional MeteredEntitlementFallback fallback = 2;
+}
+
+message GetMeteredEntitlementRequest {
+  string customer_id = 1;
+  string feature_id = 2;
+  optional string resource_id = 3;
+  optional MeteredEntitlementOptions options = 4;
+}
+
+message GetMeteredEntitlementResponse {
+  bool has_access = 1;
+  bool is_fallback = 2;
+  optional AccessDeniedReason access_denied_reason = 3;
+  double requested_usage = 4;
+  MeteredEntitlement entitlement = 5;
+}
+
+message RedisOptions {
+  string environment_prefix = 1;
+  optional string host = 2;
+  optional int32 port = 3;
+  optional int32 db = 4;
+  optional string username = 5;
+  optional string password = 6;
+  optional int32 ttl = 7;
+}
+
+message EntitlementFallback {
+  oneof fallback {
+    BooleanEntitlementFallback boolean = 1;
+    NumericEntitlementFallback numeric = 2;
+    MeteredEntitlementFallback metered = 3;
+  }
+}
+
+message ApiConfig {
+  string api_key = 1;
+  optional string api_url = 2;
+  optional bool edge_enabled = 3;
+  optional string edge_api_url = 4;
+}
+
+message LocalSidecarConfig {
+  optional bool ws_enabled = 5;
+  optional string ws_url = 6;
+  optional RedisOptions redis = 7;
+  map<string, EntitlementFallback> entitlements_fallback = 8;
+  optional int64 cache_max_size_bytes = 9;
+}
+
+message ReportUsageRequest {
+  string customer_id = 1;
+  optional string resource_id = 2;
+  string feature_id = 3;
+  double value = 4;
+  optional UsageUpdateBehavior update_behavior = 5;
+}
+
+message EventDimensionValue {
+  oneof value {
+    string string_value = 1;
+    double number_value = 2;
+    bool boolean_value = 3;
+  }
+}
+
+message Event {
+  string event_name = 1;
+  string customer_id = 2;
+  string idempotency_key = 3;
+  optional string resource_id = 4;
+  map<string, EventDimensionValue> dimensions = 5;
+  optional google.protobuf.Timestamp timestamp = 6;
+}
+
+message ReportUsageResponse {
+  string measurement_id = 1;
+}
+
+message ReportEventsRequest {
+  repeated Event events = 1;
+}
+
+message ReloadEntitlementsRequest {
+  string customer_id = 1;
+  optional string resource_id = 2;
+}
+
+message ReloadEntitlementsResponse {
+  bool entitled_entity_exists = 1;
+}
+
+service SidecarService {
+  rpc GetEntitlements(GetEntitlementsRequest) returns (GetEntitlementsResponse);
+  rpc GetBooleanEntitlement(GetBooleanEntitlementRequest) returns (GetBooleanEntitlementResponse);
+  rpc GetNumericEntitlement(GetNumericEntitlementRequest) returns (GetNumericEntitlementResponse);
+  rpc GetMeteredEntitlement(GetMeteredEntitlementRequest) returns (GetMeteredEntitlementResponse);
+  rpc ReportUsage(ReportUsageRequest) returns (ReportUsageResponse);
+  rpc ReportEvents(ReportEventsRequest) returns (google.protobuf.Empty);
+  rpc ReloadEntitlements(ReloadEntitlementsRequest) returns (ReloadEntitlementsResponse);
+}
