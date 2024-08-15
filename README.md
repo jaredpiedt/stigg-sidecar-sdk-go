@@ -1,6 +1,6 @@
 # Stigg Sidecar Go SDK
 
-stigg-sidecar-sdk-go is a Go client library for accessing the Stigg [Sidecar](https://docs.stigg.io/docs/sidecar).
+A Go client library for accessing the Stigg [Sidecar](https://docs.stigg.io/docs/sidecar).
 
 ## Installation
 
@@ -26,6 +26,7 @@ func main() {
 	if err != nil {
 		log.Fatalf(err)
 	}
+    defer client.Close()
 
 	resp, err := client.GetEntitlements(ctx, &stigg.GetEntitlementsRequest{
 		CustomerId: *customerID,
