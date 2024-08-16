@@ -1,6 +1,6 @@
 module github.com/jaredpiedt/stigg-sidecar-sdk-go
 
-go 1.22.0
+go 1.21
 
 require (
 	google.golang.org/grpc v1.65.0
